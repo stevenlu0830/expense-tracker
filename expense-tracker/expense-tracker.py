@@ -16,8 +16,34 @@ def addExpense():
     print("Expenses added!\n")
 
 def viewSummary():
-    print("View Summary\n")
+    try:
+        with open("expenses.csv", "r") as file:
+            reader = csv.reader(file)
+            expenses = list(reader)
 
+        print("File loaded!\n")
+    
+        sumExpense = 0.00
+
+        if expenses:
+            for expense in expenses:
+                sumExpense = sumExpense + float(expense[2])
+
+        print(f"Your total expense is {sumExpense: .2f}")
+        print("Breakdown:")
+
+        if expenses:
+            for expense in expenses:
+                category = expense[1]
+                amount = float(expense[2])
+                print(f"{category}: {amount: .2f}")
+
+        print("\n")
+
+    except FileNotFoundError:
+        print("Error: Cannot find expenses.csv!\n")
+    
+    
 def main():
 
     operation = True

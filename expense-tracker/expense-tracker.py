@@ -1,4 +1,18 @@
+import csv
+from datetime import datetime
+
 def addExpense():
+    amount = float(input("Enter the amount used:"))
+    category = input("Enter the related category:")
+    date = input("Enter the date in \"DD-MM-YYYY\" or \"today\": ")
+
+    if date.lower() == "today":
+        date = datetime.now().strftime("%Y-%m-%d")
+
+    with open('expenses.csv', "a", newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([date, category, amount])
+
     print("Expenses added!\n")
 
 def viewSummary():

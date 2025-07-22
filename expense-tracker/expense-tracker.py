@@ -1,10 +1,18 @@
 import csv
 from datetime import datetime
 
+def positiveNumCheck():
+    amount = float(input("Enter the amount used: "))
+
+    while amount <= 0:
+        amount = float(input("The amount must be a positive number! Try again: "))
+    
+    return amount
+
 def addExpense():
-    amount = float(input("Enter the amount used:"))
-    category = input("Enter the related category:")
-    date = input("Enter the date in \"DD-MM-YYYY\" or \"today\": ")
+    amount = positiveNumCheck()
+    category = input("Enter the related category: ")
+    date = input("Enter the date in \"YYYY-DD-MM\" or \"today\": ")
 
     if date.lower() == "today":
         date = datetime.now().strftime("%Y-%m-%d")

@@ -1,5 +1,7 @@
 import csv
 from datetime import datetime
+from collections import defaultdict
+import matplotlib.pyplot as plt
 
 def positiveAmountCheck():
     amount = float(input("Enter the amount used: "))
@@ -106,15 +108,47 @@ def monthlyReport():
         print("Error: Cannot find expenses.csv!\n")
 
 
+def produceGraph():
+    try:
+        dates = []
+        amounts = []
+        categories = []
+
+        with open("expenses.csv", "r") as file:
+            reader = csv.reader(file)
+            for row in reader:
+                year, month, day, category, amount = row[0], row[1], row[2], row[3], row[4]
+                dates.append(f"{year}-{month}")  
+                amounts.append(float(amount))
+                categories.append(category)
+        print("File loaded!")
+    
+        monthly_totals = defaultdict(float)
+        for date, amount in zip(dates, amounts):
+            monthly_totals[date] += amount
+
+        plt.figure(figsize=(10, 5))
+        plt.plot(list(monthly_totals.keys()), list(monthly_totals.values()), marker='o', linestyle='-')
+        plt.title("Monthly Spending")
+        plt.xlabel("Month (Year-Month)")
+        plt.ylabel("Total Amount ($)")
+        plt.xticks(rotation=45)
+        plt.grid(True)
+        plt.show()
+
+    except FileNotFoundError:
+        print("Error: Cannot find expenses.csv!\n")
+
+
 def main():
 
     operation = True
-
     while operation:
         print("1. Add an expense")
         print("2. View Summary")
-        print("3. Month Report")
-        print("4. Exit")
+        print("3. Produce Monthly Report")
+        print("4. Produce Graph: Spending Trend")
+        print("5. Exit")
 
         choice = input("Choose an option:")
 
@@ -125,11 +159,12 @@ def main():
         elif choice == '3':
             monthlyReport()
         elif choice == '4':
+            produceGraph()
+        elif choice == '5':
             print("Bye bye!")
             operation = False
         else:
             print("Invalid input! Please try again.\n")
-
 
 
 if __name__ == "__main__":

@@ -1,4 +1,14 @@
-# hello-world
-This repository is for practicing the GitHub Flow
+# Expense Tracker  
+A CLI tool to log and analyze daily expenses.  
 
-I am Steven. I am a 3rd year computer science student at UBC. I like coding.
+## How to Run  
+1. Clone the repo:  
+   
+   ```bash
+   git clone https://github.com/stevenlu0830/expense-tracker.git
+
+2. Run the script:
+
+    ```bash
+    python expense_tracker.py
+

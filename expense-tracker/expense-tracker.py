@@ -25,16 +25,21 @@ def positiveYearCheck():
 def addExpense():
     amount = positiveAmountCheck()
     category = input("Enter the related category: ")
-    date = input("Enter the date in \"YYYY-DD-MM\" or \"today\": ")
+    date = input("Enter the date in \"YYYY-MM-DD\" or \"today\": ")
 
     if date.lower() == "today":
         date = datetime.now().strftime("%Y-%m-%d")
+    
+    year = date[:4]
+    month = date[5:7]
+    day = date[8:10]
 
     with open('expenses.csv', "a", newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([date, category, amount])
+        writer.writerow([year, month, day, category, amount])
 
-    print("Expenses added!\n")
+    print("Expenses added!")
+    print("--------------------------------\n")
 
 
 def viewSummary():
@@ -48,18 +53,18 @@ def viewSummary():
 
         if expenses:
             for expense in expenses:
-                sumExpense = sumExpense + float(expense[2])
+                sumExpense = sumExpense + float(expense[4])
 
-        print(f"Your total expense is {sumExpense: .2f}")
+        print(f"Your total expense is {sumExpense: .2f}\n")
         print("Breakdown:")
 
         if expenses:
             for expense in expenses:
-                category = expense[1]
-                amount = float(expense[2])
+                category = expense[3]
+                amount = float(expense[4])
                 print(f"{category}: {amount: .2f}")
 
-        print("\n")
+        print("--------------------------------\n")
 
     except FileNotFoundError:
         print("Error: Cannot find expenses.csv!\n")
@@ -70,27 +75,32 @@ def monthlyReport():
         with open("expenses.csv", "r") as file:
             reader = csv.reader(file)
             expenses = list(reader)
-        print("File loaded!\n")
+        print("File loaded!")
     
         targetYear = positiveYearCheck()
         targetMonth = positiveMonthCheck()
         targetMonth = targetMonth.zfill(2)
 
         monthlyExpense = 0.00
+        print("")
         print(f"Breakdown: ")
 
         if expenses:
             for expense in expenses:
-                date = expense[0]
-                category = expense[1]
-                amount = float(expense[2])
+                year = expense[0]
+                month = expense[1]
+                day = expense[2]
+                category = expense[3]
+                amount = float(expense[4])
 
-                if date[:4] == targetYear:
-                    if date[5:7] == targetMonth:
+                if year == targetYear:
+                    if month == targetMonth:
                         monthlyExpense = monthlyExpense + amount
-                        print(f"{category}: {amount:.2f}, Bought in {date}")
+                        print(f"{category}: {amount:.2f}, Bought in {day}-{month}-{year}")
         
-        print(f"Your expense that month is: {monthlyExpense}\n")
+        print("")
+        print(f"Your expense that month is: {monthlyExpense: .2f}")
+        print("--------------------------------\n")
 
     except FileNotFoundError:
         print("Error: Cannot find expenses.csv!\n")
@@ -115,7 +125,7 @@ def main():
         elif choice == '3':
             monthlyReport()
         elif choice == '4':
-            print("Bye bye")
+            print("Bye bye!")
             operation = False
         else:
             print("Invalid input! Please try again.\n")

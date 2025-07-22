@@ -15,6 +15,13 @@ def positiveMonthCheck():
     
     return month
 
+def positiveYearCheck():
+    year = input("Enter the year: ")
+    while int(year) <= 0:
+        year = input("The year must be a positive integer! Try again: ").strip()
+    
+    return year
+
 def addExpense():
     amount = positiveAmountCheck()
     category = input("Enter the related category: ")
@@ -65,7 +72,7 @@ def monthlyReport():
             expenses = list(reader)
         print("File loaded!\n")
     
-        targetYear = input("Enter the year: ")
+        targetYear = positiveYearCheck()
         targetMonth = positiveMonthCheck()
         targetMonth = targetMonth.zfill(2)
 

@@ -47,17 +47,14 @@ class ExpenseTrackerApp(tk.Tk):
 
         self.add_tab = ttk.Frame(notebook)
         self.summary_tab = ttk.Frame(notebook)
-        self.monthly_tab = ttk.Frame(notebook)
         self.graph_tab = ttk.Frame(notebook)
 
         notebook.add(self.add_tab, text="Add Expense")
         notebook.add(self.summary_tab, text="Summary")
-        notebook.add(self.monthly_tab, text="Monthly Report")
         notebook.add(self.graph_tab, text="Spending Trend")
 
         self._build_add_tab()
         self._build_summary_tab()
-        self._build_monthly_tab()
         self._build_graph_tab()
 
         # Refresh views whenever the user switches to them.
@@ -153,12 +150,19 @@ class ExpenseTrackerApp(tk.Tk):
         )
         self.total_label.pack(anchor="w", pady=(0, 10))
 
-        columns = ("date", "category", "amount")
-        self.summary_tree = ttk.Treeview(frame, columns=columns, show="headings")
-        self.summary_tree.heading("date", text="Date")
+        # Tree hierarchy: each year-month is a parent row (with its subtotal),
+        # expenses within it are children sorted oldest to latest.
+        self.summary_tree = ttk.Treeview(
+            frame, columns=("category", "amount"), show="tree headings"
+        )
+        self.summary_tree.heading("#0", text="Date / Month")
         self.summary_tree.heading("category", text="Category")
         self.summary_tree.heading("amount", text="Amount ($)")
+        self.summary_tree.column("#0", width=180)
         self.summary_tree.column("amount", anchor="e", width=120)
+        # Distinct text colours: month subtotals vs. individual breakdown rows.
+        self.summary_tree.tag_configure("month", foreground="#1a56db")
+        self.summary_tree.tag_configure("entry", foreground="#15803d")
         self.summary_tree.pack(fill="both", expand=True, side="left")
 
         scroll = ttk.Scrollbar(
@@ -169,90 +173,34 @@ class ExpenseTrackerApp(tk.Tk):
 
     def _refresh_summary(self):
         self.summary_tree.delete(*self.summary_tree.get_children())
-        expenses = load_expenses()
+
+        # Group expenses by "year-month".
+        groups = defaultdict(list)
         total = 0.0
-        for exp in expenses:
-            try:
-                year, month, day, category, amount = exp[0], exp[1], exp[2], exp[3], float(exp[4])
-            except (IndexError, ValueError):
-                continue
-            total += amount
-            self.summary_tree.insert(
-                "", "end",
-                values=(f"{year}-{month}-{day}", category, f"{amount:.2f}"),
-            )
-        self.total_label.config(text=f"Total expense: ${total:.2f}")
-
-    # ------------------------------------------------------ Monthly report tab
-    def _build_monthly_tab(self):
-        frame = ttk.Frame(self.monthly_tab, padding=15)
-        frame.pack(fill="both", expand=True)
-
-        controls = ttk.Frame(frame)
-        controls.pack(fill="x", pady=(0, 10))
-
-        ttk.Label(controls, text="Year:").pack(side="left")
-        self.report_year_var = tk.StringVar(value=str(datetime.now().year))
-        ttk.Entry(controls, textvariable=self.report_year_var, width=8).pack(
-            side="left", padx=(4, 12)
-        )
-
-        ttk.Label(controls, text="Month (1-12):").pack(side="left")
-        self.report_month_var = tk.StringVar(value=str(datetime.now().month))
-        ttk.Entry(controls, textvariable=self.report_month_var, width=6).pack(
-            side="left", padx=(4, 12)
-        )
-
-        ttk.Button(controls, text="Generate", command=self._generate_report).pack(
-            side="left"
-        )
-
-        self.monthly_total_label = ttk.Label(
-            frame, text="", font=("TkDefaultFont", 12, "bold")
-        )
-        self.monthly_total_label.pack(anchor="w", pady=(0, 8))
-
-        columns = ("date", "category", "amount")
-        self.monthly_tree = ttk.Treeview(frame, columns=columns, show="headings")
-        self.monthly_tree.heading("date", text="Date")
-        self.monthly_tree.heading("category", text="Category")
-        self.monthly_tree.heading("amount", text="Amount ($)")
-        self.monthly_tree.column("amount", anchor="e", width=120)
-        self.monthly_tree.pack(fill="both", expand=True)
-
-    def _generate_report(self):
-        try:
-            target_year = int(self.report_year_var.get())
-            target_month = int(self.report_month_var.get())
-        except ValueError:
-            messagebox.showerror("Invalid input", "Year and month must be integers.")
-            return
-        if target_year <= 0 or not (1 <= target_month <= 12):
-            messagebox.showerror(
-                "Invalid input", "Year must be positive and month must be 1-12."
-            )
-            return
-
-        target_year = str(target_year)
-        target_month = str(target_month).zfill(2)
-
-        self.monthly_tree.delete(*self.monthly_tree.get_children())
-        monthly_total = 0.0
         for exp in load_expenses():
             try:
                 year, month, day, category, amount = exp[0], exp[1], exp[2], exp[3], float(exp[4])
             except (IndexError, ValueError):
                 continue
-            if year == target_year and month == target_month:
-                monthly_total += amount
-                self.monthly_tree.insert(
-                    "", "end",
-                    values=(f"{year}-{month}-{day}", category, f"{amount:.2f}"),
+            total += amount
+            groups[f"{year}-{month}"].append((day, category, amount))
+
+        # Groups sorted oldest to latest; expenses within each sorted by day.
+        for ym in sorted(groups):
+            entries = sorted(groups[ym], key=lambda e: e[0])
+            subtotal = sum(amount for _, _, amount in entries)
+            parent = self.summary_tree.insert(
+                "", "end", text=ym, values=("", f"{subtotal:.2f}"),
+                open=False, tags=("month",),
+            )
+            for day, category, amount in entries:
+                self.summary_tree.insert(
+                    parent, "end",
+                    text=f"{ym}-{day}", values=(category, f"{amount:.2f}"),
+                    tags=("entry",),
                 )
 
-        self.monthly_total_label.config(
-            text=f"{target_year}-{target_month} total: ${monthly_total:.2f}"
-        )
+        self.total_label.config(text=f"Total expense: ${total:.2f}")
 
     # -------------------------------------------------------------- Graph tab
     def _build_graph_tab(self):

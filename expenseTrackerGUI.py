@@ -1,19 +1,16 @@
 """Expense Tracker — GUI version.
 
-A Tkinter front end for the CLI expense tracker. Same features:
-  1. Add an expense
-  2. View summary (total + breakdown)
-  3. Produce monthly report (filter by year/month)
-  4. Produce graph: spending trend (embedded matplotlib chart)
+A Tkinter front end with three tabs, sharing all domain logic and data with the
+console app via ``expense_store``:
+  1. Add Expense    — pick a type, amount, date (typed or via a calendar), details
+  2. Summary        — total + month-grouped breakdown (collapsible, colour-coded)
+  3. Spending Trend — embedded matplotlib chart of monthly totals
 
-Shares the same expenses.csv (columns: year, month, day, category, amount)
-as the CLI version, so data stays compatible between the two.
+This module is presentation only; reading/writing and aggregation live in
+``expense_store``, so the GUI and console stay consistent by construction.
 """
 
 import calendar
-import csv
-import os
-from collections import defaultdict
 from datetime import datetime
 from tkinter import ttk
 import tkinter as tk
@@ -24,30 +21,22 @@ matplotlib.use("TkAgg")  # render inside the Tk window
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
-# Keep the CSV next to this script so the working directory doesn't matter.
-CSV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "expenses.csv")
-
-# The fixed set of expense types the user must choose from when adding an expense.
-EXPENSE_TYPES = [
-    "Housing", "Utilities", "Groceries", "Dining out", "Transportation",
-    "Shopping", "Health", "Insurance", "Personal care", "Entertainment",
-    "Subscriptions", "Travel", "Gifts and donations", "Debt payments",
-    "Savings and investments", "Taxes", "Fees", "Education",
-    "Childcare and kids", "Pets", "Business or work", "Others",
-]
-
-
-def load_expenses():
-    """Return the CSV rows as a list of [year, month, day, category, amount]."""
-    if not os.path.exists(CSV_PATH):
-        return []
-    with open(CSV_PATH, "r", newline="") as file:
-        return [row for row in csv.reader(file) if row]
+from chart import plot_monthly_totals
+from expense_store import (
+    EXPENSE_TYPES,
+    Expense,
+    ExpenseStore,
+    group_by_month,
+    monthly_totals,
+    parse_date,
+    total,
+)
 
 
 class ExpenseTrackerApp(tk.Tk):
-    def __init__(self):
+    def __init__(self, store=None):
         super().__init__()
+        self.store = store or ExpenseStore()
         self.title("Expense Tracker")
         self.geometry("760x560")
         self.minsize(640, 480)
@@ -152,24 +141,15 @@ class ExpenseTrackerApp(tk.Tk):
 
         details = self.details_var.get().strip()
 
-        raw_date = self.date_var.get().strip()
-        if raw_date.lower() == "today" or raw_date == "":
-            date = datetime.now()
-        else:
-            try:
-                date = datetime.strptime(raw_date, "%Y-%m-%d")
-            except ValueError:
-                messagebox.showerror(
-                    "Invalid date", 'Use the format "YYYY-MM-DD" or click Today.'
-                )
-                return
+        try:
+            year, month, day = parse_date(self.date_var.get())
+        except ValueError:
+            messagebox.showerror(
+                "Invalid date", 'Use the format "YYYY-MM-DD" or click Today.'
+            )
+            return
 
-        year = date.strftime("%Y")
-        month = date.strftime("%m")
-        day = date.strftime("%d")
-
-        with open(CSV_PATH, "a", newline="") as file:
-            csv.writer(file).writerow([year, month, day, category, amount, details])
+        self.store.add(Expense(year, month, day, category, amount, details))
 
         self.add_status.config(
             text=f"Added: {category} ${amount:.2f} on {year}-{month}-{day}"
@@ -215,35 +195,22 @@ class ExpenseTrackerApp(tk.Tk):
     def _refresh_summary(self):
         self.summary_tree.delete(*self.summary_tree.get_children())
 
-        # Group expenses by "year-month".
-        groups = defaultdict(list)
-        total = 0.0
-        for exp in load_expenses():
-            try:
-                year, month, day, category, amount = exp[0], exp[1], exp[2], exp[3], float(exp[4])
-            except (IndexError, ValueError):
-                continue
-            details = exp[5] if len(exp) > 5 else ""  # optional trailing column
-            total += amount
-            groups[f"{year}-{month}"].append((day, category, amount, details))
-
-        # Groups sorted oldest to latest; expenses within each sorted by day.
-        for ym in sorted(groups):
-            entries = sorted(groups[ym], key=lambda e: e[0])
-            subtotal = sum(amount for _, _, amount, _ in entries)
+        expenses = self.store.load()
+        for group in group_by_month(expenses):
             parent = self.summary_tree.insert(
-                "", "end", text=ym, values=("", "", f"{subtotal:.2f}"),
+                "", "end", text=group.month_key,
+                values=("", "", f"{group.subtotal:.2f}"),
                 open=False, tags=("month",),
             )
-            for day, category, amount, details in entries:
+            for expense in group.expenses:
                 self.summary_tree.insert(
                     parent, "end",
-                    text=f"{ym}-{day}",
-                    values=(category, details, f"{amount:.2f}"),
+                    text=expense.iso_date,
+                    values=(expense.category, expense.details, f"{expense.amount:.2f}"),
                     tags=("entry",),
                 )
 
-        self.total_label.config(text=f"Total expense: ${total:.2f}")
+        self.total_label.config(text=f"Total expense: ${total(expenses):.2f}")
 
     # -------------------------------------------------------------- Graph tab
     def _build_graph_tab(self):
@@ -260,24 +227,11 @@ class ExpenseTrackerApp(tk.Tk):
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
 
     def _draw_graph(self):
-        monthly_totals = defaultdict(float)
-        for exp in load_expenses():
-            try:
-                year, month, amount = exp[0], exp[1], float(exp[4])
-            except (IndexError, ValueError):
-                continue
-            monthly_totals[f"{year}-{month}"] += amount
+        totals = monthly_totals(self.store.load())
 
         self.ax.clear()
-        if monthly_totals:
-            keys = sorted(monthly_totals.keys())
-            values = [monthly_totals[k] for k in keys]
-            self.ax.plot(keys, values, marker="o", linestyle="-")
-            self.ax.set_title("Monthly Spending")
-            self.ax.set_xlabel("Month (Year-Month)")
-            self.ax.set_ylabel("Total Amount ($)")
-            self.ax.grid(True)
-            self.ax.tick_params(axis="x", rotation=45)
+        if totals:
+            plot_monthly_totals(self.ax, totals)
         else:
             self.ax.text(
                 0.5, 0.5, "No expenses to display",
@@ -339,11 +293,18 @@ class DatePicker(tk.Toplevel):
         self._draw_calendar()
 
     def _on_header_change(self):
-        self.month = self.month_combo.current() + 1
+        month = self.month_combo.current() + 1
         try:
-            self.year = int(self.year_spin.get())
+            year = int(self.year_spin.get())
         except ValueError:
-            pass
+            year = self.year
+
+        # Only rebuild the grid when the period actually changed. Otherwise a
+        # <FocusOut> fired by clicking a day button would destroy that button
+        # mid-click and silently drop the selection.
+        if (year, month) == (self.year, self.month):
+            return
+        self.year, self.month = year, month
         self._draw_calendar()
 
     def _shift_month(self, delta):

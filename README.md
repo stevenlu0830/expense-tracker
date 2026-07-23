@@ -74,6 +74,33 @@ The Summary and graph refresh automatically when you switch to their tabs.
 > install Tk once with `brew install python-tk@3.13` (match the number to your Python
 > version), then run the GUI again.
 
+## Project structure
+
+```
+expense_store.py        Shared domain + persistence layer (single source of truth)
+expenseTracker.py       Console front end (presentation only)
+expenseTrackerGUI.py    Tkinter GUI front end (presentation only)
+expenses.csv            Data file (shared by both front ends)
+tests/                  Unit tests
+```
+
+Both front ends are thin: the expense-type list, the CSV format/location, and all
+grouping/aggregation logic live only in **`expense_store.py`** (an `Expense` model,
+an `ExpenseStore` that reads/writes the file, and pure `total` / `group_by_month` /
+`monthly_totals` functions). The console and GUI just collect input and render
+results, so they stay consistent by construction.
+
+## Running the tests
+
+From the project root:
+
+```bash
+python -m unittest discover -s tests -t .
+```
+
+The GUI tests skip automatically when Tkinter/display isn't available; the domain
+and console tests always run.
+
 ## Data
 
 Expenses are stored in `expenses.csv` in the project folder, one row per expense.

@@ -1,23 +1,35 @@
-import csv
-from datetime import datetime
-from collections import defaultdict
+"""Expense Tracker — console version.
+
+A menu-driven command-line front end. All domain logic and persistence live in
+``expense_store``; this module only deals with console input and output.
+"""
+
 import matplotlib.pyplot as plt
 
-# The fixed set of expense types the user must choose from when adding an expense.
-EXPENSE_TYPES = [
-    "Housing", "Utilities", "Groceries", "Dining out", "Transportation",
-    "Shopping", "Health", "Insurance", "Personal care", "Entertainment",
-    "Subscriptions", "Travel", "Gifts and donations", "Debt payments",
-    "Savings and investments", "Taxes", "Fees", "Education",
-    "Childcare and kids", "Pets", "Business or work", "Others",
-]
+from chart import plot_monthly_totals
+from expense_store import (
+    EXPENSE_TYPES,
+    Expense,
+    ExpenseStore,
+    group_by_month,
+    monthly_totals,
+    parse_date,
+    total,
+)
+
 
 def positiveAmountCheck():
-    amount = float(input("Enter the amount used: "))
-    while amount <= 0:
-        amount = float(input("The amount must be a positive number! Try again: "))
+    while True:
+        raw = input("Enter the amount used: ")
+        try:
+            amount = float(raw)
+        except ValueError:
+            print("The amount must be a number! Try again.")
+            continue
+        if amount > 0:
+            return amount
+        print("The amount must be a positive number! Try again.")
 
-    return amount
 
 def selectExpenseType():
     print("Select an expense type:")
@@ -30,98 +42,65 @@ def selectExpenseType():
             return EXPENSE_TYPES[int(choice) - 1]
         print("Invalid choice! Please pick a number from the list.")
 
-def addExpense():
+
+def readDate():
+    """Prompt until a valid date (or 'today') is entered; return (year, month, day)."""
+    while True:
+        raw = input('Enter the date in "YYYY-MM-DD" or "today": ')
+        try:
+            return parse_date(raw)
+        except ValueError:
+            print('Invalid date! Use the format "YYYY-MM-DD" or "today".')
+
+
+def addExpense(store):
     amount = positiveAmountCheck()
     category = selectExpenseType()
     details = input("Enter details (optional, press Enter to skip): ").strip()
-    date = input("Enter the date in \"YYYY-MM-DD\" or \"today\": ")
+    year, month, day = readDate()
 
-    if date.lower() == "today":
-        date = datetime.now().strftime("%Y-%m-%d")
-    
-    year = date[:4]
-    month = date[5:7]
-    day = date[8:10]
+    store.add(Expense(year, month, day, category, amount, details))
 
-    with open('expenses.csv', "a", newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow([year, month, day, category, amount, details])
-
-    print("Expenses added!")
+    print("Expense added!")
     print("--------------------------------\n")
 
 
-def viewSummary():
-    try:
-        with open("expenses.csv", "r") as file:
-            reader = csv.reader(file)
-            expenses = [row for row in reader if row]
-        print("File loaded!\n")
+def viewSummary(store):
+    expenses = store.load()
 
-        sumExpense = 0.00
-        groups = defaultdict(list)
+    if not expenses:
+        print("No expenses recorded yet.\n")
+        return
 
-        for expense in expenses:
-            year, month, day = expense[0], expense[1], expense[2]
-            category = expense[3]
-            amount = float(expense[4])
-            details = expense[5] if len(expense) > 5 else ""
-            sumExpense = sumExpense + amount
-            groups[f"{year}-{month}"].append((day, category, amount, details))
+    print(f"Your total expense is {total(expenses): .2f}\n")
+    print("Breakdown (grouped by month, oldest to latest):")
 
-        print(f"Your total expense is {sumExpense: .2f}\n")
-        print("Breakdown (grouped by month, oldest to latest):")
+    for group in group_by_month(expenses):
+        print(f"\n{group.month_key} (subtotal: {group.subtotal:.2f})")
+        for expense in group.expenses:
+            line = f"  {expense.iso_date}  {expense.category}: {expense.amount:.2f}"
+            if expense.details:
+                line += f" — {expense.details}"
+            print(line)
 
-        # Groups sorted oldest to latest; expenses within each sorted by day.
-        for yearMonth in sorted(groups):
-            entries = sorted(groups[yearMonth], key=lambda e: e[0])
-            subtotal = sum(amount for day, category, amount, details in entries)
-            print(f"\n{yearMonth} (subtotal: {subtotal:.2f})")
-            for day, category, amount, details in entries:
-                line = f"  {yearMonth}-{day}  {category}: {amount:.2f}"
-                if details:
-                    line += f" — {details}"
-                print(line)
+    print("--------------------------------\n")
 
-        print("--------------------------------\n")
 
-    except FileNotFoundError:
-        print("Error: Cannot find expenses.csv!\n")
-    
+def produceGraph(store):
+    totals = monthly_totals(store.load())
 
-def produceGraph():
-    try:
-        dates = []
-        amounts = []
-        categories = []
+    if not totals:
+        print("No expenses to graph yet.\n")
+        return
 
-        with open("expenses.csv", "r") as file:
-            reader = csv.reader(file)
-            for row in reader:
-                year, month, day, category, amount = row[0], row[1], row[2], row[3], row[4]
-                dates.append(f"{year}-{month}")  
-                amounts.append(float(amount))
-                categories.append(category)
-        print("File loaded!")
-    
-        monthly_totals = defaultdict(float)
-        for date, amount in zip(dates, amounts):
-            monthly_totals[date] += amount
-
-        plt.figure(figsize=(10, 5))
-        plt.plot(list(monthly_totals.keys()), list(monthly_totals.values()), marker='o', linestyle='-')
-        plt.title("Monthly Spending")
-        plt.xlabel("Month (Year-Month)")
-        plt.ylabel("Total Amount ($)")
-        plt.xticks(rotation=45)
-        plt.grid(True)
-        plt.show()
-
-    except FileNotFoundError:
-        print("Error: Cannot find expenses.csv!\n")
+    fig, ax = plt.subplots(figsize=(10, 5))
+    plot_monthly_totals(ax, totals)
+    fig.tight_layout()
+    plt.show()
 
 
 def main():
+    store = ExpenseStore()
 
     operation = True
     while operation:
@@ -133,11 +112,11 @@ def main():
         choice = input("Choose an option:")
 
         if choice == '1':
-            addExpense()
+            addExpense(store)
         elif choice == '2':
-            viewSummary()
+            viewSummary(store)
         elif choice == '3':
-            produceGraph()
+            produceGraph(store)
         elif choice == '4':
             operation = False
         else:

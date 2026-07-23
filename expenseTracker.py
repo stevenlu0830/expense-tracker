@@ -65,8 +65,9 @@ def viewSummary():
             year, month, day = expense[0], expense[1], expense[2]
             category = expense[3]
             amount = float(expense[4])
+            details = expense[5] if len(expense) > 5 else ""
             sumExpense = sumExpense + amount
-            groups[f"{year}-{month}"].append((day, category, amount))
+            groups[f"{year}-{month}"].append((day, category, amount, details))
 
         print(f"Your total expense is {sumExpense: .2f}\n")
         print("Breakdown (grouped by month, oldest to latest):")
@@ -74,10 +75,13 @@ def viewSummary():
         # Groups sorted oldest to latest; expenses within each sorted by day.
         for yearMonth in sorted(groups):
             entries = sorted(groups[yearMonth], key=lambda e: e[0])
-            subtotal = sum(amount for day, category, amount in entries)
+            subtotal = sum(amount for day, category, amount, details in entries)
             print(f"\n{yearMonth} (subtotal: {subtotal:.2f})")
-            for day, category, amount in entries:
-                print(f"  {yearMonth}-{day}  {category}: {amount:.2f}")
+            for day, category, amount, details in entries:
+                line = f"  {yearMonth}-{day}  {category}: {amount:.2f}"
+                if details:
+                    line += f" — {details}"
+                print(line)
 
         print("--------------------------------\n")
 

@@ -10,12 +10,14 @@ Both read and write the same `expenses.csv` file, so you can switch between them
 
 ## Features
 
-- **Add an expense** — record an amount, a category (e.g. Food, Rent, Transport),
-  and a date. Type a date as `YYYY-MM-DD` or use *today* for the current date.
-  Amounts are validated to be positive numbers.
+- **Add an expense** — record an amount, choose an **expense type** from a fixed list
+  (Housing, Groceries, Transportation, Entertainment, …), add optional free-text
+  **details**, and set a date. Type a date as `YYYY-MM-DD`, use *today* for the current
+  date, or — in the GUI — click **📅 Calendar** to pick a day after choosing the month
+  and/or year. Amounts are validated to be positive numbers.
 - **View summary** — see your **total spending** plus a breakdown **grouped by month**
-  (ordered oldest to latest), with a **subtotal per month** and every expense sorted
-  by date within its month.
+  (ordered oldest to latest), with a **subtotal per month**, every expense sorted by
+  date within its month, and its **details** shown alongside the amount.
   - In the GUI, month subtotals and individual expenses are shown in **different
     colours**, and each month starts **collapsed** so you can expand only the ones
     you care about.
@@ -74,11 +76,12 @@ The Summary and graph refresh automatically when you switch to their tabs.
 
 ## Data
 
-Expenses are stored in `expenses.csv` in the project folder, one row per expense:
+Expenses are stored in `expenses.csv` in the project folder, one row per expense.
+Columns are `year, month, day, category, amount, details` (details may be empty):
 
 ```
-year,month,day,category,amount
-2025,06,15,Food,12.50
+2025,06,15,Groceries,12.50,weekly shop
+2025,06,16,Transportation,5.75,
 ```
 
 The file is created automatically the first time you add an expense.

@@ -3,16 +3,37 @@ from datetime import datetime
 from collections import defaultdict
 import matplotlib.pyplot as plt
 
+# The fixed set of expense types the user must choose from when adding an expense.
+EXPENSE_TYPES = [
+    "Housing", "Utilities", "Groceries", "Dining out", "Transportation",
+    "Shopping", "Health", "Insurance", "Personal care", "Entertainment",
+    "Subscriptions", "Travel", "Gifts and donations", "Debt payments",
+    "Savings and investments", "Taxes", "Fees", "Education",
+    "Childcare and kids", "Pets", "Business or work", "Others",
+]
+
 def positiveAmountCheck():
     amount = float(input("Enter the amount used: "))
     while amount <= 0:
         amount = float(input("The amount must be a positive number! Try again: "))
-    
+
     return amount
+
+def selectExpenseType():
+    print("Select an expense type:")
+    for index, expenseType in enumerate(EXPENSE_TYPES, start=1):
+        print(f"{index}. {expenseType}")
+
+    while True:
+        choice = input(f"Enter a number (1-{len(EXPENSE_TYPES)}): ").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(EXPENSE_TYPES):
+            return EXPENSE_TYPES[int(choice) - 1]
+        print("Invalid choice! Please pick a number from the list.")
 
 def addExpense():
     amount = positiveAmountCheck()
-    category = input("Enter the related category: ")
+    category = selectExpenseType()
+    details = input("Enter details (optional, press Enter to skip): ").strip()
     date = input("Enter the date in \"YYYY-MM-DD\" or \"today\": ")
 
     if date.lower() == "today":
@@ -24,7 +45,7 @@ def addExpense():
 
     with open('expenses.csv', "a", newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([year, month, day, category, amount])
+        writer.writerow([year, month, day, category, amount, details])
 
     print("Expenses added!")
     print("--------------------------------\n")

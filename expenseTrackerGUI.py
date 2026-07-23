@@ -26,6 +26,15 @@ from matplotlib.figure import Figure
 # Keep the CSV next to this script so the working directory doesn't matter.
 CSV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "expenses.csv")
 
+# The fixed set of expense types the user must choose from when adding an expense.
+EXPENSE_TYPES = [
+    "Housing", "Utilities", "Groceries", "Dining out", "Transportation",
+    "Shopping", "Health", "Insurance", "Personal care", "Entertainment",
+    "Subscriptions", "Travel", "Gifts and donations", "Debt payments",
+    "Savings and investments", "Taxes", "Fees", "Education",
+    "Childcare and kids", "Pets", "Business or work", "Others",
+]
+
 
 def load_expenses():
     """Return the CSV rows as a list of [year, month, day, category, amount]."""
@@ -71,11 +80,13 @@ class ExpenseTrackerApp(tk.Tk):
             row=0, column=1, sticky="w", pady=6
         )
 
-        ttk.Label(frame, text="Category:").grid(row=1, column=0, sticky="w", pady=6)
+        # Expense type: must be chosen from the fixed list (read-only dropdown).
+        ttk.Label(frame, text="Expense type:").grid(row=1, column=0, sticky="w", pady=6)
         self.category_var = tk.StringVar()
-        ttk.Entry(frame, textvariable=self.category_var, width=30).grid(
-            row=1, column=1, sticky="w", pady=6
-        )
+        ttk.Combobox(
+            frame, textvariable=self.category_var, values=EXPENSE_TYPES,
+            state="readonly", width=28,
+        ).grid(row=1, column=1, sticky="w", pady=6)
 
         ttk.Label(frame, text="Date (YYYY-MM-DD):").grid(
             row=2, column=0, sticky="w", pady=6
@@ -88,12 +99,21 @@ class ExpenseTrackerApp(tk.Tk):
             row=2, column=2, sticky="w", padx=6
         )
 
+        # Details: free-text and optional.
+        ttk.Label(frame, text="Details (optional):").grid(
+            row=3, column=0, sticky="w", pady=6
+        )
+        self.details_var = tk.StringVar()
+        ttk.Entry(frame, textvariable=self.details_var, width=30).grid(
+            row=3, column=1, sticky="w", pady=6
+        )
+
         ttk.Button(frame, text="Add Expense", command=self._add_expense).grid(
-            row=3, column=1, sticky="w", pady=18
+            row=4, column=1, sticky="w", pady=18
         )
 
         self.add_status = ttk.Label(frame, text="", foreground="green")
-        self.add_status.grid(row=4, column=0, columnspan=3, sticky="w")
+        self.add_status.grid(row=5, column=0, columnspan=3, sticky="w")
 
     def _set_today(self):
         self.date_var.set(datetime.now().strftime("%Y-%m-%d"))
@@ -110,9 +130,13 @@ class ExpenseTrackerApp(tk.Tk):
             return
 
         category = self.category_var.get().strip()
-        if not category:
-            messagebox.showerror("Missing category", "Please enter a category.")
+        if category not in EXPENSE_TYPES:
+            messagebox.showerror(
+                "Missing expense type", "Please select an expense type from the list."
+            )
             return
+
+        details = self.details_var.get().strip()
 
         raw_date = self.date_var.get().strip()
         if raw_date.lower() == "today" or raw_date == "":
@@ -131,7 +155,7 @@ class ExpenseTrackerApp(tk.Tk):
         day = date.strftime("%d")
 
         with open(CSV_PATH, "a", newline="") as file:
-            csv.writer(file).writerow([year, month, day, category, amount])
+            csv.writer(file).writerow([year, month, day, category, amount, details])
 
         self.add_status.config(
             text=f"Added: {category} ${amount:.2f} on {year}-{month}-{day}"
@@ -139,6 +163,7 @@ class ExpenseTrackerApp(tk.Tk):
         self.amount_var.set("")
         self.category_var.set("")
         self.date_var.set("")
+        self.details_var.set("")
 
     # ------------------------------------------------------------ Summary tab
     def _build_summary_tab(self):

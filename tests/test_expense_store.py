@@ -112,6 +112,16 @@ class ExpenseStoreTests(unittest.TestCase):
         self.store.add(Expense("2025", "02", "02", "Groceries", 5.0))
         self.assertEqual(len(self.store.load()), 2)
 
+    def test_load_skips_blank_rows(self):
+        # A trailing newline or stray blank line yields an empty row from the
+        # csv reader; it should be skipped without disturbing the real rows.
+        self._write_rows([
+            ["2025", "06", "15", "Food", "12.50", "ok"],
+            [],
+            ["2025", "06", "17", "Food", "8.00"],
+        ])
+        self.assertEqual([e.amount for e in self.store.load()], [12.5, 8.0])
+
     def test_load_skips_malformed_rows(self):
         self._write_rows([
             ["2025", "06", "15", "Food", "12.50", "ok"],

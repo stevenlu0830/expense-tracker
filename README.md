@@ -101,6 +101,37 @@ python -m unittest discover -s tests -t .
 The GUI tests skip automatically when Tkinter/display isn't available; the domain
 and console tests always run.
 
+### Code coverage
+
+Install [coverage.py](https://coverage.readthedocs.io/) once:
+
+```bash
+pip install coverage
+```
+
+Then run the suite under it and print the report:
+
+```bash
+python -m coverage run -m unittest discover -s tests -t .
+```
+
+```bash
+python -m coverage report
+```
+
+Settings live in `.coveragerc` (branch coverage on, `tests/` excluded), so no extra
+flags are needed. For a browsable line-by-line view instead:
+
+```bash
+python -m coverage html
+```
+
+That writes `htmlcov/index.html` — open it in a browser.
+
+> Coverage is measured with the GUI tests running. If Tkinter isn't available on
+> your machine those tests skip, and `expenseTrackerGUI.py` will report far lower
+> coverage than it actually has.
+
 ## Data
 
 Expenses are stored in `expenses.csv` in the project folder, one row per expense.
